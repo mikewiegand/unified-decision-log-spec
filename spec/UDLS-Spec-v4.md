@@ -1,5 +1,8 @@
 # Unified Decision Log Specification (v4)
 
+[Jump to Table of Contents](#table-of-contents)
+
+
 ## Table of Contents
 1. [Purpose](#purpose)
 2. [Design Goals](#design-goals)
@@ -9,18 +12,29 @@
 6. [Field Definitions](#field-definitions)
 7. [Action Vocabulary](#action-vocabulary)
 8. [Rationale Rules](#rationale-rules)
-9. [Temporal & Offline Strategy](#temporal--offline-strategy)
-10. [Storage & Transmission Model](#storage--transmission-model)
+9. [Temporal & Offline Strategy](#temporal-offline-strategy)
+10. [Storage & Transmission Model](#storage-transmission-model)
 11. [Reference Implementation (MicroPython)](#reference-implementation-micropython)
 12. [Future Extensions](#future-extensions)
 13. [Coexistence With Regular Application Logging](#coexistence-with-regular-application-logging)
-14. [ESP32 Time Sync & Local NTP Server Guidance](#esp32-time-sync--local-ntp-server-guidance)
+14. [ESP32 Time Sync & Local NTP Server Guidance](#esp32-time-sync-local-ntp-server-guidance)
 15. [Time Evaluation Harness for Drift, Fallback, and Time-Health Gates](#time-evaluation-harness-for-drift-fallback-and-time-health-gates)
 16. [Version](#version)
+17. [17.1 Overview](#1-overview)
+18. [17.2 Multi-Application Behavioral Pattern Mining](#2-multi-application-behavioral-pattern-mining)
+19. [17.3 Enterprise Drift Detection](#3-enterprise-drift-detection)
+20. [17.4 Organizational Intent Heatmapping](#4-organizational-intent-heatmapping)
+21. [17.5 Causal Chain Reconstruction](#5-causal-chain-reconstruction)
+22. [17.6 Knowledge Graph Construction](#6-knowledge-graph-construction)
+23. [17.7 Multi-Agent Governance](#7-multi-agent-governance)
+24. [17.8 Enterprise Evaluation Pipelines](#8-enterprise-evaluation-pipelines)
+25. [17.9 Recommended Storage & Query Models](#9-recommended-storage-query-models)
+26. [17.10 Organizational Intelligence Outcomes](#10-organizational-intelligence-outcomes)
 
----
 
 ## Purpose
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 This specification defines how software components - from microcontrollers to edge nodes, servers, and batch jobs - generate, store, and transmit **decision logs** with deterministic replay, integrity safeguards, and efficient low-footprint encoding.
 
@@ -36,6 +50,8 @@ The goal is a single, stable decision record shape that humans, agents, and back
 
 ## Design Goals
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 - Deterministic replay & audit support
 - Minimal overhead for MCU-class hardware
 - Optional cryptographic integrity
@@ -47,6 +63,8 @@ The goal is a single, stable decision record shape that humans, agents, and back
 ---
 
 ## Scope
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 Applies to any component that **makes decisions** and may later need to explain or audit them, including but not limited to:
 
@@ -61,6 +79,8 @@ Applies to any component that **makes decisions** and may later need to explain 
 ---
 
 ## Core Requirements
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 | Field | Type | Description |
 |----------------|--------------------|-----------------------------------------------|
@@ -87,39 +107,39 @@ Original minimum compatible example:
  "seq": 4
 }
 ```
-
 ---
 
 ## Unified Decision Record Schema
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 ```yaml
 decision_log_event:
- v: 1
- id: <uuid|sha160>
- actor: <string>
- intent_id: <string>
- action: <string>
- rationale: <text-limit-256>
- seq: <int>
- timestamp:
- value: <iso8601|float> # device's best wall-clock or monotonic time
- source: <ntp|gateway|rtc|server|unknown>
- uc_run_id: <string>
- correlation_id: <string|null>
+  v: 1
+  id: <uuid|sha160>
+  actor: <string>
+  intent_id: <string>
+  action: <string>
+  rationale: <text-limit-256>
+  seq: <int>
+  timestamp:
+  value: <iso8601|float> # device's best wall-clock or monotonic time
+  source: <ntp|gateway|rtc|server|unknown>
+  uc_run_id: <string>
+  correlation_id: <string|null>
 
- temporal:
- mode: <monotonic|lamport|hybrid>
- lamport: <optional-int> # only when using logical clocks across peers
+  temporal:
+  mode: <monotonic|lamport|hybrid>
+  lamport: <optional-int> # only when using logical clocks across peers
 
- result:
- status: <executed|aborted|simulated|skipped>
- artifact_hash: <optional> # hash of resulting config / model / artifact
+  result:
+  status: <executed|aborted|simulated|skipped>
+  artifact_hash: <optional> # hash of resulting config / model / artifact
 
- integrity:
- entry_hash: <sha256> # hash over all user-facing fields
- signature: <optional-ed25519>
+  integrity:
+  entry_hash: <sha256> # hash over all user-facing fields
+  signature: <optional-ed25519>
 ```
-
 Notes:
 
 - The **original minimal JSON example** remains valid; backends may normalize it into this richer schema.
@@ -129,6 +149,8 @@ Notes:
 ---
 
 ## Field Definitions
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 This section provides full descriptions of each field in `decision_log_event`. These definitions are authoritative and part of the specification.
 
@@ -173,6 +195,8 @@ This section provides full descriptions of each field in `decision_log_event`. T
 
 ## Action Vocabulary
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 Rules:
 
 - Lowercase only
@@ -188,10 +212,11 @@ ota.rollback.triggered
 governance.policy.reject
 policy.allow.v2
 ```
-
 ---
 
 ## Rationale Rules
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 Rationale **must be**:
 
@@ -208,10 +233,11 @@ battery=9% < safe_min=12%
 rate_limit=500rps exceeded soft_limit=300rps
 policy=allow_if_owner; owner_id matches requestor
 ```
-
 ---
 
 ## Temporal & Offline Strategy
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 ### Time Sources (Preference Order)
 
@@ -326,18 +352,17 @@ Any decision influenced by an LLM, rule engine, or hybrid agent MUST include a `
 
 ```yaml
 model:
- id: <string> # model family, e.g. phi-4-mini
- variant: <string> # deployment profile, e.g. thor-gpu-q4
- version: <string> # semantic version OWNED by the org, not vendor-only
- commit: <string> # git hash, gguf hash, docker tag, etc.
- engine: <string> # llama.cpp, vllm, ollama, custom_runtime
- params:
- context_window: <int>
- temperature: <float>
- top_p: <float>
- seed: <int|null>
+  id: <string> # model family, e.g. phi-4-mini
+  variant: <string> # deployment profile, e.g. thor-gpu-q4
+  version: <string> # semantic version OWNED by the org, not vendor-only
+  commit: <string> # git hash, gguf hash, docker tag, etc.
+  engine: <string> # llama.cpp, vllm, ollama, custom_runtime
+  params:
+  context_window: <int>
+  temperature: <float>
+  top_p: <float>
+  seed: <int|null>
 ```
-
 Rules:
 
 - `model.version` MUST be bumped on **any** weight change, quantization change, fine-tune, or safety-filter update.
@@ -352,7 +377,7 @@ Extend the Action Vocabulary with:
 | `model.release` | New model version is published into the registry. |
 | `model.enable` | Model version becomes active for one or more use cases. |
 | `model.disable` | Model version is retired or removed from routing. |
-| `model.rollout` | Canary → pilot → prod rollout for models. |
+| `model.rollout` | Canary -> pilot -> prod rollout for models. |
 | `model.rollback` | Revert to a previous stable version. |
 | `model.eval_run` | Evaluation suite executed against a model. |
 | `model.drift.alert` | Automatic alert: drift detected beyond thresholds. |
@@ -365,31 +390,30 @@ Every model version MUST have a corresponding artifact under `.specify/models/`:
 
 ```yaml
 model_release:
- id: "phi-4-mini"
- version: "2025-11-15.1"
- provider: "local"
- engine: "llama.cpp"
- weights_artifact: "thor:/models/phi4/phi4-mini-2025-11-15.1.gguf"
+  id: "phi-4-mini"
+  version: "2025-11-15.1"
+  provider: "local"
+  engine: "llama.cpp"
+  weights_artifact: "thor:/models/phi4/phi4-mini-2025-11-15.1.gguf"
 
- eval_reports:
- safety_v3:
- pass_rate: 0.98
- regressions: 0
- packweave_core_ucs:
- success_rate: 0.94
- avg_latency_ms: 110
+  eval_reports:
+  safety_v3:
+  pass_rate: 0.98
+  regressions: 0
+  packweave_core_ucs:
+  success_rate: 0.94
+  avg_latency_ms: 110
 
- approved_for:
+  approved_for:
  - "packweave.uc.low_risk"
  - "otajet.ops.read_only"
 
- blocked_for:
+  blocked_for:
  - "otajet.manifest_write"
 
- approved_by: "mike"
- approved_at: "2025-11-16T03:12:00Z"
+  approved_by: "mike"
+  approved_at: "2025-11-16T03:12:00Z"
 ```
-
 This spec ties the model version to its evals, safety guarantees, and operational gates.
 
 #### Drift Monitoring & Detection
@@ -414,7 +438,6 @@ When drift exceeds defined thresholds, systems MUST emit:
  "model": { "...": "..." }
 }
 ```
-
 #### Drift Evaluation Harness
 
 A parallel to the Time Evaluation Harness applies to models.
@@ -427,7 +450,6 @@ Recommended directory:
  safety_regression.yaml
  routing_core_ucs.yaml
 ```
-
 Example scenario:
 
 ```yaml
@@ -439,13 +461,12 @@ model_under_test: phi-4-mini:2025-11-15.1
 baseline: phi-4-mini:2025-10-01.2
 
 expected:
- max_error_rate_delta: 0.05
- max_safety_regressions: 0
- max_latency_delta_ms: 25
- required_actions:
+  max_error_rate_delta: 0.05
+  max_safety_regressions: 0
+  max_latency_delta_ms: 25
+  required_actions:
  - model.eval_run
 ```
-
 The harness MUST:
 
 - run eval packs
@@ -453,7 +474,7 @@ The harness MUST:
 - emit `model.eval_run` decision logs
 - fail the rollout pipeline if regressions exceed thresholds
 
-#### Rollout & Rollback Governance (Canary → Pilot → Prod)
+#### Rollout & Rollback Governance (Canary -> Pilot -> Prod)
 
 Model rollouts MUST follow the same ringed pattern as OTA artifacts:
 
@@ -474,7 +495,6 @@ Promotion and rollback events MUST produce decision logs:
  "model": { "version": "2025-11-15.1" }
 }
 ```
-
 #### Replay & Audit Semantics
 
 Replay must reconstruct **exactly which model** influenced each decision:
@@ -509,6 +529,8 @@ This section elevates model usage to **first-class auditable behavior**, equal t
 ---
 
 ## Storage & Transmission Model
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 ### Local Storage Model
 
@@ -546,6 +568,8 @@ Recommendations:
 
 ## Reference Implementation (MicroPython)
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 Minimal example using newline-delimited JSON (JSON Lines). This focuses on the **core required fields**; a gateway or backend can normalize into the richer schema later.
 
 ```python
@@ -581,7 +605,6 @@ def record_decision_log(action, rationale, corr=None, path="decision_log.jl"):
  f.write(ujson.dumps(entry) + "
 ")
 ```
-
 Notes:
 
 - The file name default `decision_log.jl` uses the **JSON Lines** convention (one JSON object per line). You may rename to `.jsonl` if you prefer.
@@ -590,6 +613,8 @@ Notes:
 ---
 
 ## Future Extensions
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 | Feature | Purpose |
 |------------------------|-----------------------------------|
@@ -605,6 +630,8 @@ These can be layered on without breaking older emitters, as long as the core fie
 
 ## Coexistence With Regular Application Logging
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 Decision logs defined by this specification are **not a replacement** for traditional application logs. Instead, they represent a **parallel, structured audit stream** optimized for explaining *why decisions were made*, while traditional logs explain *how the system executed* around those decisions.
 
 Implementations SHOULD treat the two streams as **complementary but purpose-segmented**.
@@ -618,7 +645,7 @@ Focus on:
 - The semantic decision taken (allow/reject/override/action selected)
 - The reason (numeric thresholds, policy rules, confidence scores)
 - A stable, replayable schema for audits and governance
-- Consistency across different execution environments (MCU → cloud)
+- Consistency across different execution environments (MCU -> cloud)
 
 Characteristics:
 
@@ -640,7 +667,7 @@ Focus on:
 Characteristics:
 
 - High volume
-- Hot-swappable verbosity (`DEBUG → INFO → ERROR`)
+- Hot-swappable verbosity (`DEBUG -> INFO -> ERROR`)
 - Often unstructured or semi-structured
 
 Together, they produce a complete picture of system behavior.
@@ -669,7 +696,6 @@ Application logs SHOULD **carry the same identifiers**, either as:
  "uc_run_id": "run_004"
  }
  ```
-
  - Recommended for: Loki, ELK, CloudWatch structured logs, Datadog, etc.
  - Makes it trivial to join on `correlation_id` and `uc_run_id` in queries.
 
@@ -678,7 +704,6 @@ Application logs SHOULD **carry the same identifiers**, either as:
  ```text
  [corr=req-991][uc=run_004] INFO LLM suggested approve; safety filter triggered override.
  ```
-
  - Recommended for: stdout logs, serial console, early-boot logs.
  - Log shippers can parse the prefix into fields (e.g., via regex or grok patterns).
 
@@ -705,7 +730,6 @@ flowchart TD
  E --> F[Application Logs Debug Info Warn Error]
  D -.shares IDs.-> F
 ```
-
 ### 13.3 Log Routing and Storage Separation
 
 Systems SHOULD route the two streams **independently**:
@@ -732,7 +756,6 @@ flowchart TD
  D -.queried with IDs.-> F[Analysis Audit Governance]
  E -.queried with IDs.-> F
 ```
-
 ### 13.4 Typical Flow in LLM / Policy-Driven Systems
 
 When an LLM, rule engine, or hybrid agent drives behavior, a typical pattern is:
@@ -755,7 +778,6 @@ Example decision log:
  "seq": 14
 }
 ```
-
 Example application logs (same correlation id):
 
 ```text
@@ -763,7 +785,6 @@ Example application logs (same correlation id):
 [req-5532] DEBUG model_scores={...redacted...}
 [req-5532] INFO Final decision: reject; emitting audit event seq=14
 ```
-
 This pairing allows deterministic replay of decisions, deep debugging when something goes wrong, and clear governance visibility, while keeping sensitive or verbose details in the app logs rather than in the decision log schema.
 
 ### 13.5 Guidance for Implementers
@@ -811,10 +832,11 @@ Common fields (correlation IDs, run IDs) should be the only bridge.
  | |
  Correlation IDs connect both streams
 ```
-
 ---
 
 ## ESP32 Time Sync & Local NTP Server Guidance
+
+[⬆ Back to Table of Contents](#table-of-contents)
 
 The ESP32-S3 (and similar high-end ESP32 variants) can act as both:
 
@@ -846,7 +868,6 @@ flowchart TD
  C --> E
  D --> E
 ```
-
 ### 14.2 ESP32-S3 as NTP Client (MicroPython)
 
 ```python
@@ -859,7 +880,6 @@ ntptime.settime()
 
 print("Synced UTC:", time.time())
 ```
-
 After a successful sync:
 
 - `timestamp.source` SHOULD be recorded as `"ntp"`.
@@ -891,7 +911,6 @@ while True:
  response = data[:40] + struct.pack("!I", ntp_time) + b""
  sock.sendto(response, addr)
 ```
-
 > This is intentionally minimal and SNTP-like. For production, you may want to expand fields, handle leap seconds, and apply rate limiting.
 
 Clients then sync against the ESP32 time master:
@@ -902,7 +921,6 @@ import ntptime
 ntptime.host = "192.168.4.1" # IP of ESP32-S3 time service node
 ntptime.settime()
 ```
-
 ### 14.4 Drift Expectations & Sync Cadence
 
 | Source | Typical Drift | Notes |
@@ -933,7 +951,6 @@ When a device is successfully syncing to the ESP32 time master:
  "uc_run_id": "run_2025_11_20_01"
 }
 ```
-
 If NTP is temporarily unavailable:
 
 - Fall back to `gateway`, then `rtc`, then `unknown` as appropriate.
@@ -994,7 +1011,6 @@ devices/
  log_util.py # shared logging helpers
  time_util.py # helper for last_ntp_sync, drift estimates
 ```
-
 #### Responsibilities of the `time_master` profile
 
 - Join the correct Wi-Fi network (e.g., `mWagon-fleet`).
@@ -1028,7 +1044,6 @@ The Time Service Node itself MAY emit decision logs when its time behavior chang
  "correlation_id": "time-calib-001"
 }
 ```
-
 and later:
 
 ```json
@@ -1046,7 +1061,6 @@ and later:
  "correlation_id": "time-calib-002"
 }
 ```
-
 ### 14.9 Decision-Log Time-Health Policy (Spec Snippet)
 
 This specification RECOMMENDS a **time-health policy** that can be applied by devices, gateways, and backends. The policy governs when to:
@@ -1058,46 +1072,45 @@ A possible YAML representation (for inclusion in a higher-level policy spec) is:
 
 ```yaml
 time_health_policy:
- max_ntp_age_sec_high_trust: 600 # ≤10 minutes since last NTP = HIGH
- max_ntp_age_sec_medium_trust: 3600 # ≤60 minutes = MEDIUM, else LOW
+  max_ntp_age_sec_high_trust: 600 # ≤10 minutes since last NTP = HIGH
+  max_ntp_age_sec_medium_trust: 3600 # ≤60 minutes = MEDIUM, else LOW
 
- actions:
+  actions:
  - id: time_trust_high
- when:
+  when:
  timestamp.source: "ntp"
- seconds_since_last_ntp_sync: <= 600
- decision_log:
- action: "time.trust.high"
- rationale: "source=ntp; age<=600s; using high-trust timestamps"
+  seconds_since_last_ntp_sync: <= 600
+  decision_log:
+  action: "time.trust.high"
+  rationale: "source=ntp; age<=600s; using high-trust timestamps"
 
  - id: time_trust_medium
- when:
+  when:
  timestamp.source: "ntp"
- seconds_since_last_ntp_sync: > 600
- seconds_since_last_ntp_sync: <= 3600
- decision_log:
- action: "time.trust.medium"
- rationale: "source=ntp; 600s<age<=3600s; using medium-trust timestamps"
+  seconds_since_last_ntp_sync: > 600
+  seconds_since_last_ntp_sync: <= 3600
+  decision_log:
+  action: "time.trust.medium"
+  rationale: "source=ntp; 600s<age<=3600s; using medium-trust timestamps"
 
  - id: time_trust_low
- when:
- any_of:
+  when:
+  any_of:
  - timestamp.source in ["ntp", "gateway"]
- seconds_since_last_ntp_sync: > 3600
+  seconds_since_last_ntp_sync: > 3600
  - timestamp.source in ["rtc", "unknown"]
- decision_log:
- action: "time.trust.low"
- rationale: "source in {rtc,unknown} or NTP age>3600s; timestamps low-trust"
+  decision_log:
+  action: "time.trust.low"
+  rationale: "source in {rtc,unknown} or NTP age>3600s; timestamps low-trust"
 
  - id: time_health_warning
- when:
+  when:
  timestamp.source in ["rtc", "unknown"]
- and: decision_rate_last_10_min > 0
- decision_log:
- action: "time.health.warning"
- rationale: "decisions emitted while timestamp.source!=ntp; review ordering"
+  and: decision_rate_last_10_min > 0
+  decision_log:
+  action: "time.health.warning"
+  rationale: "decisions emitted while timestamp.source!=ntp; review ordering"
 ```
-
 > **Note:** The above is **policy guidance**, not a hard schema requirement. Implementations MAY adjust thresholds but SHOULD preserve the general idea of tiered trust and explicit decision events for time-health changes.
 
 #### Backend Enforcement Example
@@ -1122,7 +1135,6 @@ flowchart TD
  F --> H[Optional decision log event time trust medium]
  E --> I[Optional decision log event time trust low or time health warning]
 ```
-
 In OTAJet/PackWeave contexts, this policy can be encoded as:
 
 - a PackWeave **trait** (e.g., `time-governed`), and/or
@@ -1132,12 +1144,14 @@ In OTAJet/PackWeave contexts, this policy can be encoded as:
 
 ## Time Evaluation Harness for Drift, Fallback, and Time-Health Gates
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 Because this specification relies on dependable time sources and explicit time-health semantics, implementations SHOULD include an **evaluation harness** that validates drift behavior, fallback modes, and time-health gates under controlled scenarios.
 
 The goal of the harness is to ensure that:
 
 - Clock drift remains within acceptable limits when `timestamp.source="ntp"`.
-- Devices fall back correctly through `ntp → gateway → rtc → unknown` while preserving ordering via `seq` and `temporal.mode`.
+- Devices fall back correctly through `ntp -> gateway -> rtc -> unknown` while preserving ordering via `seq` and `temporal.mode`.
 - Time-health decision events (e.g., `time.trust.*`, `time.health.warning`) are emitted and consumed as defined in this spec.
 
 ### 15.1 Objectives
@@ -1167,65 +1181,64 @@ description: >
  for ESP32 Time Master + clients under varying conditions.
 
 actors:
- time_master:
- kind: esp32_s3
- profile: time_master
- clients:
+  time_master:
+  kind: esp32_s3
+  profile: time_master
+  clients:
  - id: client_a
- kind: esp32_c6
- profile: generic_client
+  kind: esp32_c6
+  profile: generic_client
  - id: client_b
- kind: esp32_s3
- profile: generic_client
+  kind: esp32_s3
+  profile: generic_client
 
 scenarios:
  - id: steady_ntp_high_trust
- duration_sec: 900
- ntp_upstream: online
- client_sync_interval_sec: 60
- expected:
- max_abs_drift_ms: 100
- min_time_trust_level: HIGH
- required_decisions:
+  duration_sec: 900
+  ntp_upstream: online
+  client_sync_interval_sec: 60
+  expected:
+  max_abs_drift_ms: 100
+  min_time_trust_level: HIGH
+  required_decisions:
  - action: "time.trust.high"
 
  - id: ntp_loss_medium_then_low
- duration_sec: 5400 # 90 min
- ntp_upstream: offline_at: 300 # 5 min in
- client_sync_interval_sec: 120
- expected:
- transitions:
+  duration_sec: 5400 # 90 min
+  ntp_upstream: offline_at: 300 # 5 min in
+  client_sync_interval_sec: 120
+  expected:
+  transitions:
  - from: HIGH
- to: MEDIUM
- within_sec_of_ntp_loss: 900
+  to: MEDIUM
+  within_sec_of_ntp_loss: 900
  - from: MEDIUM
- to: LOW
- within_sec_of_ntp_loss: 3600
- required_decisions:
+  to: LOW
+  within_sec_of_ntp_loss: 3600
+  required_decisions:
  - action: "time.trust.medium"
  - action: "time.trust.low"
  - action: "time.health.warning"
 
  - id: client_reboot_with_stale_rtc
- duration_sec: 1800
- ntp_upstream: offline
- events:
+  duration_sec: 1800
+  ntp_upstream: offline
+  events:
  - at_sec: 0
- actor: client_a
- action: "reboot"
- mutate:
- rtc_offset_sec: +7200 # 2 hours wrong
- expected:
- all_decisions:
- order_by: ["actor", "seq"]
- monotonic_seq: true
- allow_timestamp_source:
+  actor: client_a
+  action: "reboot"
+  mutate:
+  rtc_offset_sec: +7200 # 2 hours wrong
+  expected:
+  all_decisions:
+  order_by: ["actor", "seq"]
+  monotonic_seq: true
+  allow_timestamp_source:
  - "rtc"
  - "unknown"
- required_decisions:
+  required_decisions:
  - action: "time.health.warning"
 ```
-
 This structure is illustrative; actual keys MAY vary, but SHOULD capture:
 
 - Which actors participate (time master, clients).
@@ -1273,13 +1286,11 @@ For events with `timestamp.source="ntp"` during HIGH-trust periods:
  ```text
  drift = abs(event.timestamp.value - canonical_time_at_event)
  ```
-
 - Assert:
 
  ```text
  drift <= max_abs_drift_ms / 1000.0
  ```
-
 where `max_abs_drift_ms` is defined per scenario (e.g., 100 ms).
 
 #### Fallback Checks
@@ -1330,13 +1341,11 @@ For OTAJet- or PackWeave-style projects, this specification RECOMMENDS that:
  time_health_drift.yaml
  time_fallback.yaml
  ```
-
 - The runner is added to CI, for example:
 
  ```sh
  uv run scripts/evals/run_time_evals.py
  ```
-
 - CI fails if:
 
  - Any scenario's drift exceeds declared thresholds.
@@ -1350,4 +1359,147 @@ Together, these practices turn the **dependable clock assumptions** in this spec
 
 ## Version
 
+[⬆ Back to Table of Contents](#table-of-contents)
+
 `Unified Decision Log Specification` - **v4** - generalized for any decision-making component (devices, gateways, and services), with full field definitions, logging coexistence guidance, ESP32 time sync / local NTP service "living on an ESP," and a recommended time evaluation harness for drift, fallback, and time-health gates.
+
+---
+
+# 17. Cross-System Pattern Mining & Organizational Intelligence
+
+This section describes how multiple enterprise applications can derive shared intelligence, detect organizational patterns, and drive governance decisions from UDLS-compliant logs.
+
+## 17.1 Overview
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+UDLS provides a unified schema for decision events across IoT nodes, enterprise services, LLM-assisted workflows, and multi-agent systems. By aggregating these logs, organizations can construct cross-application intelligence structures that reveal patterns in behavior, drift, policy adherence, and systemic risk.
+
+## 17.2 Multi-Application Behavioral Pattern Mining
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+Aggregated UDLS events encode:
+- Intent frequencies
+- Action outcomes
+- Rationale motifs
+- Override patterns
+- Model lineage and drift markers
+
+Cross-application queries identify:
+- Recurrent human overrides
+- High-risk decisions across departments
+- Systematic misalignment between LLM suggestions and policy
+- Coordinated failure signatures across independent systems
+
+## 17.3 Enterprise Drift Detection
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+Drift signals emerging across multiple systems reveal:
+- Global model regressions
+- Dataset contamination
+- Uneven rollout impacts
+- Policy or threshold miscalibration
+
+By comparing UDLS `eval`, `model.version`, and `result` fields across applications, organizations can detect and respond to fleet-wide misbehavior.
+
+## 17.4 Organizational Intent Heatmapping
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+UDLS `intent_id` enables semantic grouping of decisions across departments. Heatmaps derived from these identifiers surface:
+- High-volume workflows
+- Pain points requiring automation
+- Repeated escalation loops
+- Compliance or policy hot-spots
+
+This guides optimization, training, and resource allocation.
+
+## 17.5 Causal Chain Reconstruction
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+UDLS `correlation_id` allows multi-service causal graphs connecting:
+- LLM proposals
+- Policy evaluations
+- Device behaviors
+- User interactions
+- Downstream consequences
+
+These graphs uncover:
+- Latency bottlenecks
+- Error propagation chains
+- Cascading failures
+- Policy conflicts
+
+## 17.6 Knowledge Graph Construction
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+Each UDLS event can be modeled as a node or edge in an organizational knowledge graph.
+
+Nodes:
+- intents
+- actions
+- rationale classes
+- model versions
+- actors
+- drift states
+
+Edges:
+- decision -> result
+- decision -> next decision
+- rationale -> action
+- model -> drift event
+
+Graph queries reveal:
+- Predictive failure patterns
+- Emergent best practices
+- Areas for policy rewrite or retraining
+- Opportunities for decision automation
+
+## 17.7 Multi-Agent Governance
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+Aggregated UDLS logs allow agents to:
+- Validate policy compliance globally
+- Detect rule conflicts
+- Monitor decision consistency across workflows
+- Enforce enterprise-wide governance constraints
+- Trigger mitigations or rollbacks
+
+## 17.8 Enterprise Evaluation Pipelines
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+Organizations SHOULD implement evaluation pipelines that:
+1. Ingest UDLS logs into a scalable store.
+2. Compute cross-service metrics (alignment, drift, escalation).
+3. Surface anomalies to governance systems.
+4. Trigger rollbacks or model routing changes.
+5. Provide human-readable dashboards for oversight.
+
+## 17.9 Recommended Storage & Query Models
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+Ideal backends for UDLS aggregation include:
+- Columnar stores (ClickHouse, DuckDB)
+- Search engines (Elasticsearch, OpenSearch)
+- Graph DBs (Neo4j, Memgraph)
+- Vector DBs (Milvus, Qdrant) for rationale embeddings
+- Lakehouse architectures (Iceberg, Delta)
+
+## 17.10 Organizational Intelligence Outcomes
+
+[⬆ Back to Table of Contents](#table-of-contents)
+
+By applying these analyses, enterprises achieve:
+- Safer AI behavior
+- Transparent decision flows
+- Cross-system alignment
+- Faster incident response
+- Continuous model improvement
+- Governance with measurable evidence
