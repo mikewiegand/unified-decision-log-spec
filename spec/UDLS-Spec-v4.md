@@ -215,9 +215,6 @@ policy=allow_if_owner; owner_id matches requestor
 
 ## Model Lineage & Drift Governance
 
-
-## Model Lineage & Drift Governance
-
 ### 10.1 Purpose
 
 This section defines how decision logs encode **which local or remote LLM produced a decision**, how model versions are governed, and how drift is detected, evaluated, and mitigated.  
