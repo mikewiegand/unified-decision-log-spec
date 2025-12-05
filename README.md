@@ -1,72 +1,70 @@
 # Unified Decision Log Specification (UDLS)
 
-UDLS is a lightweight, replayable, and governance-aligned decision logging
-standard for IoT devices, autonomous agents, orchestration systems, and
-offline-first environments.
+UDLS is a lightweight, replayable, governance-aligned decision logging standard for IoT devices, autonomous agents, orchestration systems, and offline-first environments.
 
-Traditional logs answer *“what happened?”*  
+Traditional logs answer “what happened?”  
 UDLS answers **“what was decided, why, and with what evidence?”**
 
-It gives devices and agents a shared language of:
+UDLS gives devices and agents a shared language of:
 - **Intents**
 - **Actions**
 - **Rationales**
-- **Context**
+- **Inputs & Context**
 - **Results**
-- **Telemetry**
-- **Error and drift conditions**
-
-This repository provides the complete public specification for UDLS,
-including schema definitions, field semantics, conformance rules, and
-reference examples for microcontroller, edge, and server-class systems.
-
----
+- **Telemetry (drift, scores, model lineage)**
+- **Integrity metadata**
 
 ## Why UDLS?
 
-Modern systems make autonomous decisions — but they rarely expose:
-- *why* they acted  
-- *what inputs* they used  
-- *what alternatives* were considered  
-- *what internal checks* passed/failed  
-- *how* the system evaluates drift or error  
+Modern systems—from ESP32 nodes to server-side policy engines—make autonomous decisions constantly, but rarely expose:
 
-UDLS brings **transparency, replayability, governance, and safety** to these
-decisions.
+- why they acted  
+- what inputs they considered  
+- what internal checks passed or failed  
+- how model updates or sensor drift changed behavior  
+- how trustworthy the device’s timeline was  
 
-Key properties:
-- **Deterministic replay**
-- **Low-overhead encoding for MCU devices**
-- **Alignment with Packweave traits + use-case layer**
-- **Queryable by monitoring and analytics systems**
-- **Supports offline, intermittent, and delayed transmission**
+UDLS brings **transparency, replayability, governance, and safety** to these systems.
 
----
+### Key Properties
 
-## The UDLS Record Structure
+- Deterministic replay  
+- Low-overhead encoding for MCU devices  
+- Trust-aware timestamps  
+- LLM/Model lineage support  
+- Offline & intermittent operation  
+- Distributed ordering compatibility  
 
-Every UDLS entry contains:
+## Core Concepts (high‑level)
 
-- `ts` — monotonic timestamp  
-- `actor` — device or agent identity  
-- `intent_id` — which intent the action supports  
-- `action` — the operation performed  
-- `rationale` — compact explanation  
-- `inputs` — relevant conditions, env values, or upstream signals  
-- `result` — success/failure and output  
-- `ctx` — optional structured metadata  
-- `eval` — fields relevant to drift, quality, or tests  
-- `sig` — optional cryptographic signature  
+### Temporal Ordering
+UDLS supports:
+- **monotonic counters**
+- **Lamport logical clocks**
+- **hybrid logical clocks**
 
-UDLS is purposely minimal but expressive enough for replay, audit, and governance.
+### Timestamp Trust Model
+Every timestamp includes a `source`:
+- `ntp`, `gateway`, `rtc`, `server`, or `unknown`
 
----
+### Model Lineage & Drift Governance
+Optional `model` block enables:
+- model version tracking
+- drift detection
+- eval-based rollouts  
+- deterministic replay of AI-driven decisions
+
+### ESP32 Time Authority Integration
+UDLS supports deployments with a local LAN time master (ESP32-based), enabling:
+- reliable temporal alignment
+- drift scoring
+- replay safety even in offline clusters
 
 ## Example (MCU-friendly)
 
 ```json
 {
-  "v": 2,
+  "v": 3,
   "ts": 1740238403221,
   "actor": "esp32-s3:ntp-master",
   "intent_id": "time_authority.holdover",
@@ -77,3 +75,14 @@ UDLS is purposely minimal but expressive enough for replay, audit, and governanc
   "eval": { "drift_ms": 12 },
   "ctx": { "poll_interval": 60000 }
 }
+```
+
+## Reference Implementation Notes
+- Supports JSON Lines (`.jl` / `.jsonl`)  
+- Ring-buffer or append-only local storage  
+- Works over MQTT, HTTP, BLE, ESP‑NOW  
+
+## Roadmap
+- v3.2 — richer model-eval schema  
+- v4 — streaming UDLS  
+- v5 — OpenTelemetry compatibility layer  
