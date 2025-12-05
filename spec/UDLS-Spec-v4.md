@@ -213,220 +213,6 @@ policy=allow_if_owner; owner_id matches requestor
 
 ## Temporal & Offline Strategy
 
-## Model Lineage & Drift Governance
-
-### 10.1 Purpose
-
-This section defines how decision logs encode **which local or remote LLM produced a decision**, how model versions are governed, and how drift is detected, evaluated, and mitigated.  
-Model lineage is essential for **deterministic replay**, **auditability**, and **safety**.
-
----
-
-### 10.2 Required `model` Block in Every LM-Assisted Decision
-
-Any decision influenced by an LLM, rule engine, or hybrid agent MUST include a `model` block:
-
-```yaml
-model:
-  id: <string>            # model family, e.g. phi-4-mini
-  variant: <string>       # deployment profile, e.g. thor-gpu-q4
-  version: <string>       # semantic version OWNED by the org, not vendor-only
-  commit: <string>        # git hash, gguf hash, docker tag, etc.
-  engine: <string>        # llama.cpp, vllm, ollama, custom_runtime
-  params:
-    context_window: <int>
-    temperature: <float>
-    top_p: <float>
-    seed: <int|null>
-```
-
-Rules:
-
-- `model.version` MUST be bumped on **any** weight change, quantization change, fine-tune, or safety-filter update.
-- If a node uses *no* model inference, `model` MAY be omitted or explicitly set to `null`.
-
----
-
-### 10.3 Model Governance Actions
-
-Extend the Action Vocabulary with:
-
-| Action | Description |
-|--------|-------------|
-| `model.release` | New model version is published into the registry. |
-| `model.enable` | Model version becomes active for one or more use cases. |
-| `model.disable` | Model version is retired or removed from routing. |
-| `model.rollout` | Canary → pilot → prod rollout for models. |
-| `model.rollback` | Revert to a previous stable version. |
-| `model.eval_run` | Evaluation suite executed against a model. |
-| `model.drift.alert` | Automatic alert: drift detected beyond thresholds. |
-
-These actions MUST themselves generate decision logs.
-
----
-
-### 10.4 Model Release Specification
-
-Every model version MUST have a corresponding artifact under `.specify/models/`:
-
-```yaml
-model_release:
-  id: "phi-4-mini"
-  version: "2025-11-15.1"
-  provider: "local"
-  engine: "llama.cpp"
-  weights_artifact: "thor:/models/phi4/phi4-mini-2025-11-15.1.gguf"
-
-  eval_reports:
-    safety_v3:
-      pass_rate: 0.98
-      regressions: 0
-    packweave_core_ucs:
-      success_rate: 0.94
-      avg_latency_ms: 110
-
-  approved_for:
-    - "packweave.uc.low_risk"
-    - "otajet.ops.read_only"
-
-  blocked_for:
-    - "otajet.manifest_write"
-
-  approved_by: "mike"
-  approved_at: "2025-11-16T03:12:00Z"
-```
-
-This spec ties the model version to its evals, safety guarantees, and operational gates.
-
----
-
-### 10.5 Drift Monitoring & Detection
-
-Drift occurs when output behavior of a model version diverges from its historical baseline.
-
-Decision logs enable drift detection by grouping events by `model.version`, `intent_id`, `use case`, and comparing:
-
-- error rates  
-- override frequency  
-- safety escalations  
-- outlier distributions  
-- latency deltas  
-- output embeddings or score distributions (optional)
-
-When drift exceeds defined thresholds, systems MUST emit:
-
-```json
-{
-  "action": "model.drift.alert",
-  "rationale": "error_rate_delta=+7% exceeds threshold=5%",
-  "model": { ... }
-}
-```
-
----
-
-### 10.6 Drift Evaluation Harness
-
-A parallel to the Time Evaluation Harness applies to models.
-
-Recommended directory:
-
-```
-.evals/model/
-  baseline_quality.yaml
-  safety_regression.yaml
-  routing_core_ucs.yaml
-```
-
-Example scenario:
-
-```yaml
-id: model_drift_eval_v1
-description: >
-  Validate safety, correctness, and routing stability for model version 2025-11-15.1.
-
-model_under_test: phi-4-mini:2025-11-15.1
-baseline: phi-4-mini:2025-10-01.2
-
-expected:
-  max_error_rate_delta: 0.05
-  max_safety_regressions: 0
-  max_latency_delta_ms: 25
-  required_actions:
-    - model.eval_run
-```
-
-The harness MUST:
-
-- run eval packs  
-- compare metrics to the baseline  
-- emit `model.eval_run` decision logs  
-- fail the rollout pipeline if regressions exceed thresholds  
-
----
-
-### 10.7 Rollout & Rollback Governance (Canary → Pilot → Prod)
-
-Model rollouts MUST follow the same ringed pattern as OTA artifacts:
-
-1. **Canary ring:**  
-   - Small percentage of traffic  
-   - Drift monitored intensively  
-2. **Pilot ring:**  
-   - Larger subset; expanded eval metrics  
-3. **Prod ring:**  
-   - Full adoption only when drift metrics remain within limits  
-
-Promotion and rollback events MUST produce decision logs:
-
-```json
-{
-  "action": "model.rollout",
-  "rationale": "canary success_rate=0.97 meets threshold=0.95",
-  "model": { "version": "2025-11-15.1" }
-}
-```
-
----
-
-### 10.8 Replay & Audit Semantics
-
-Replay must reconstruct **exactly which model** influenced each decision:
-
-- Use `model.version` + `model.commit` to load the correct artifact.
-- Verify `result.artifact_hash` when applicable.
-- Ensure drift-adjusted timelines reflect the model lineage.
-
-Without model lineage, auditability is impossible; with it, replay is deterministic.
-
----
-
-### 10.9 Backend Enforcement Rules
-
-Backends SHOULD:
-
-- Reject decisions missing required `model` lineage when a use case is marked as LLM-assisted.
-- Prevent enabling a model version without attached eval reports.
-- Automatically trigger `model.drift.alert` when deltas exceed thresholds.
-- Support periodic re-evaluation of existing models to detect silent drift.
-
----
-
-### 10.10 Summary
-
-Model Lineage & Drift Governance ensures:
-
-- Every decision can be tied to a specific model version  
-- Drift is measurable, explainable, and reversible  
-- Rollouts follow safe ringed promotion  
-- Eval results are durable artifacts  
-- Replay is deterministic across environments  
-
-This section elevates model usage to **first-class auditable behavior**, equal to time, temporal mode, and OTA artifacts.
-
-
-
-
 ### Time Sources (Preference Order)
 
 Devices and services SHOULD populate `timestamp.value` and `timestamp.source` according to the **best available time source**, with the following preference:
@@ -527,6 +313,199 @@ When fully offline:
 
 This guarantees that you can **replay decisions in the order they were made**, even if absolute wall-clock time was temporarily unreliable.
 
+### Model Lineage & Drift Governance
+
+#### Purpose
+
+This section defines how decision logs encode **which local or remote LLM produced a decision**, how model versions are governed, and how drift is detected, evaluated, and mitigated.  
+Model lineage is essential for **deterministic replay**, **auditability**, and **safety**.
+
+#### Required `model` Block in Every LM-Assisted Decision
+
+Any decision influenced by an LLM, rule engine, or hybrid agent MUST include a `model` block:
+
+```yaml
+model:
+  id: <string>            # model family, e.g. phi-4-mini
+  variant: <string>       # deployment profile, e.g. thor-gpu-q4
+  version: <string>       # semantic version OWNED by the org, not vendor-only
+  commit: <string>        # git hash, gguf hash, docker tag, etc.
+  engine: <string>        # llama.cpp, vllm, ollama, custom_runtime
+  params:
+    context_window: <int>
+    temperature: <float>
+    top_p: <float>
+    seed: <int|null>
+```
+
+Rules:
+
+- `model.version` MUST be bumped on **any** weight change, quantization change, fine-tune, or safety-filter update.
+- If a node uses *no* model inference, `model` MAY be omitted or explicitly set to `null`.
+
+#### Model Governance Actions
+
+Extend the Action Vocabulary with:
+
+| Action | Description |
+|--------|-------------|
+| `model.release` | New model version is published into the registry. |
+| `model.enable` | Model version becomes active for one or more use cases. |
+| `model.disable` | Model version is retired or removed from routing. |
+| `model.rollout` | Canary → pilot → prod rollout for models. |
+| `model.rollback` | Revert to a previous stable version. |
+| `model.eval_run` | Evaluation suite executed against a model. |
+| `model.drift.alert` | Automatic alert: drift detected beyond thresholds. |
+
+These actions MUST themselves generate decision logs.
+
+#### Model Release Specification
+
+Every model version MUST have a corresponding artifact under `.specify/models/`:
+
+```yaml
+model_release:
+  id: "phi-4-mini"
+  version: "2025-11-15.1"
+  provider: "local"
+  engine: "llama.cpp"
+  weights_artifact: "thor:/models/phi4/phi4-mini-2025-11-15.1.gguf"
+
+  eval_reports:
+    safety_v3:
+      pass_rate: 0.98
+      regressions: 0
+    packweave_core_ucs:
+      success_rate: 0.94
+      avg_latency_ms: 110
+
+  approved_for:
+    - "packweave.uc.low_risk"
+    - "otajet.ops.read_only"
+
+  blocked_for:
+    - "otajet.manifest_write"
+
+  approved_by: "mike"
+  approved_at: "2025-11-16T03:12:00Z"
+```
+
+This spec ties the model version to its evals, safety guarantees, and operational gates.
+
+#### Drift Monitoring & Detection
+
+Drift occurs when output behavior of a model version diverges from its historical baseline.
+
+Decision logs enable drift detection by grouping events by `model.version`, `intent_id`, `use case`, and comparing:
+
+- error rates  
+- override frequency  
+- safety escalations  
+- outlier distributions  
+- latency deltas  
+- output embeddings or score distributions (optional)
+
+When drift exceeds defined thresholds, systems MUST emit:
+
+```json
+{
+  "action": "model.drift.alert",
+  "rationale": "error_rate_delta=+7% exceeds threshold=5%",
+  "model": { "...": "..." }
+}
+```
+
+#### Drift Evaluation Harness
+
+A parallel to the Time Evaluation Harness applies to models.
+
+Recommended directory:
+
+```
+.evals/model/
+  baseline_quality.yaml
+  safety_regression.yaml
+  routing_core_ucs.yaml
+```
+
+Example scenario:
+
+```yaml
+id: model_drift_eval_v1
+description: >
+  Validate safety, correctness, and routing stability for model version 2025-11-15.1.
+
+model_under_test: phi-4-mini:2025-11-15.1
+baseline: phi-4-mini:2025-10-01.2
+
+expected:
+  max_error_rate_delta: 0.05
+  max_safety_regressions: 0
+  max_latency_delta_ms: 25
+  required_actions:
+    - model.eval_run
+```
+
+The harness MUST:
+
+- run eval packs  
+- compare metrics to the baseline  
+- emit `model.eval_run` decision logs  
+- fail the rollout pipeline if regressions exceed thresholds  
+
+#### Rollout & Rollback Governance (Canary → Pilot → Prod)
+
+Model rollouts MUST follow the same ringed pattern as OTA artifacts:
+
+1. **Canary ring:**  
+   - Small percentage of traffic  
+   - Drift monitored intensively  
+2. **Pilot ring:**  
+   - Larger subset; expanded eval metrics  
+3. **Prod ring:**  
+   - Full adoption only when drift metrics remain within limits  
+
+Promotion and rollback events MUST produce decision logs:
+
+```json
+{
+  "action": "model.rollout",
+  "rationale": "canary success_rate=0.97 meets threshold=0.95",
+  "model": { "version": "2025-11-15.1" }
+}
+```
+
+#### Replay & Audit Semantics
+
+Replay must reconstruct **exactly which model** influenced each decision:
+
+- Use `model.version` + `model.commit` to load the correct artifact.
+- Verify `result.artifact_hash` when applicable.
+- Ensure drift-adjusted timelines reflect the model lineage.
+
+Without model lineage, auditability is impossible; with it, replay is deterministic.
+
+#### Backend Enforcement Rules
+
+Backends SHOULD:
+
+- Reject decisions missing required `model` lineage when a use case is marked as LLM-assisted.
+- Prevent enabling a model version without attached eval reports.
+- Automatically trigger `model.drift.alert` when deltas exceed thresholds.
+- Support periodic re-evaluation of existing models to detect silent drift.
+
+#### Summary
+
+Model Lineage & Drift Governance ensures:
+
+- Every decision can be tied to a specific model version  
+- Drift is measurable, explainable, and reversible  
+- Rollouts follow safe ringed promotion  
+- Eval results are durable artifacts  
+- Replay is deterministic across environments  
+
+This section elevates model usage to **first-class auditable behavior**, equal to time, temporal mode, and OTA artifacts.
+
 ---
 
 ## Storage & Transmission Model
@@ -599,7 +578,8 @@ def record_decision_log(action, rationale, corr=None, path="decision_log.jl"):
     }
 
     with open(path, "a") as f:
-        f.write(ujson.dumps(entry) + "\n")
+        f.write(ujson.dumps(entry) + "
+")
 ```
 
 Notes:
@@ -726,7 +706,7 @@ flowchart TD
   D -.shares IDs.-> F
 ```
 
-13.3 Log Routing and Storage Separation
+### 13.3 Log Routing and Storage Separation
 
 Systems SHOULD route the two streams **independently**:
 
@@ -908,7 +888,7 @@ while True:
     ntp_time = int(time.time() + NTP_DELTA)
 
     # Reuse client's first 40 bytes, overwrite transmit timestamp seconds
-    response = data[:40] + struct.pack("!I", ntp_time) + b"\0\0\0\0"
+    response = data[:40] + struct.pack("!I", ntp_time) + b""
     sock.sendto(response, addr)
 ```
 
