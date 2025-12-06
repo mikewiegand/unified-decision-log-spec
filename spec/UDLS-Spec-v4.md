@@ -10,26 +10,60 @@
 4. [Core Requirements](#core-requirements)
 5. [Unified Decision Record Schema](#unified-decision-record-schema)
 6. [Field Definitions](#field-definitions)
+    - [Top-Level Fields](#top-level-fields)
+    - [Temporal Block](#temporal-block)
+    - [Result Block](#result-block)
+    - [Integrity Block](#integrity-block)
 7. [Action Vocabulary](#action-vocabulary)
 8. [Rationale Rules](#rationale-rules)
 9. [Temporal & Offline Strategy](#temporal-offline-strategy)
+    - [Time Sources (Preference Order)](#time-sources-preference-order)
+    - [Monotonic Sequence (`seq`)](#monotonic-sequence-seq)
+    - [Temporal Modes](#temporal-modes)
+    - [Lamport Logical Clock Explainer](#lamport-logical-clock-explainer)
+    - [Offline Operation](#offline-operation)
+    - [Model Lineage & Drift Governance](#model-lineage-drift-governance)
 10. [Storage & Transmission Model](#storage-transmission-model)
+    - [Local Storage Model](#local-storage-model)
+    - [File Naming and Extensions](#file-naming-and-extensions)
+    - [Transport Options](#transport-options)
 11. [Reference Implementation (MicroPython)](#reference-implementation-micropython)
 12. [Future Extensions](#future-extensions)
 13. [Coexistence With Regular Application Logging](#coexistence-with-regular-application-logging)
+    - [13.1 Purpose Differentiation](#131-purpose-differentiation)
+    - [13.2 Linking the Two Log Streams](#132-linking-the-two-log-streams)
+    - [13.3 Log Routing and Storage Separation](#133-log-routing-and-storage-separation)
+    - [13.4 Typical Flow in LLM / Policy-Driven Systems](#134-typical-flow-in-llm-policy-driven-systems)
+    - [13.5 Guidance for Implementers](#135-guidance-for-implementers)
+    - [13.6 Visual Summary](#136-visual-summary)
 14. [ESP32 Time Sync & Local NTP Server Guidance](#esp32-time-sync-local-ntp-server-guidance)
+    - [14.1 Role of the ESP32 Time Master](#141-role-of-the-esp32-time-master)
+    - [14.2 ESP32-S3 as NTP Client (MicroPython)](#142-esp32-s3-as-ntp-client-micropython)
+    - [14.3 ESP32-S3 as LAN NTP Server (Minimal SNTP Responder)](#143-esp32-s3-as-lan-ntp-server-minimal-sntp-responder)
+    - [14.4 Drift Expectations & Sync Cadence](#144-drift-expectations-sync-cadence)
+    - [14.5 Decision Log Semantics With ESP32 Time Service Nodes](#145-decision-log-semantics-with-esp32-time-service-nodes)
+    - [14.6 Interaction With Temporal Modes](#146-interaction-with-temporal-modes)
+    - [14.7 Time Service "Living on an ESP" vs External Time Services](#147-time-service-living-on-an-esp-vs-external-time-services)
+    - [14.8 OTAJet Time-Master Firmware Layout (Example)](#148-otajet-time-master-firmware-layout-example)
+    - [14.9 Decision-Log Time-Health Policy (Spec Snippet)](#149-decision-log-time-health-policy-spec-snippet)
 15. [Time Evaluation Harness for Drift, Fallback, and Time-Health Gates](#time-evaluation-harness-for-drift-fallback-and-time-health-gates)
+    - [15.1 Objectives](#151-objectives)
+    - [15.2 Scenario Specification (YAML Shape)](#152-scenario-specification-yaml-shape)
+    - [15.3 Runner Architecture](#153-runner-architecture)
+    - [15.4 Required Checks](#154-required-checks)
+    - [15.5 Integration into OTAJet / CI Pipelines](#155-integration-into-otajet-ci-pipelines)
 16. [Version](#version)
-17. [17.1 Overview](#1-overview)
-18. [17.2 Multi-Application Behavioral Pattern Mining](#2-multi-application-behavioral-pattern-mining)
-19. [17.3 Enterprise Drift Detection](#3-enterprise-drift-detection)
-20. [17.4 Organizational Intent Heatmapping](#4-organizational-intent-heatmapping)
-21. [17.5 Causal Chain Reconstruction](#5-causal-chain-reconstruction)
-22. [17.6 Knowledge Graph Construction](#6-knowledge-graph-construction)
-23. [17.7 Multi-Agent Governance](#7-multi-agent-governance)
-24. [17.8 Enterprise Evaluation Pipelines](#8-enterprise-evaluation-pipelines)
-25. [17.9 Recommended Storage & Query Models](#9-recommended-storage-query-models)
-26. [17.10 Organizational Intelligence Outcomes](#10-organizational-intelligence-outcomes)
+17. [17. Cross-System Pattern Mining & Organizational Intelligence](#17-cross-system-pattern-mining-organizational-intelligence)
+    - [17.1 Overview](#171-overview)
+    - [17.2 Multi-Application Behavioral Pattern Mining](#172-multi-application-behavioral-pattern-mining)
+    - [17.3 Enterprise Drift Detection](#173-enterprise-drift-detection)
+    - [17.4 Organizational Intent Heatmapping](#174-organizational-intent-heatmapping)
+    - [17.5 Causal Chain Reconstruction](#175-causal-chain-reconstruction)
+    - [17.6 Knowledge Graph Construction](#176-knowledge-graph-construction)
+    - [17.7 Multi-Agent Governance](#177-multi-agent-governance)
+    - [17.8 Enterprise Evaluation Pipelines](#178-enterprise-evaluation-pipelines)
+    - [17.9 Recommended Storage & Query Models](#179-recommended-storage-query-models)
+    - [17.10 Organizational Intelligence Outcomes](#1710-organizational-intelligence-outcomes)
 
 
 ## Purpose
@@ -1365,17 +1399,17 @@ Together, these practices turn the **dependable clock assumptions** in this spec
 
 ---
 
-# 17. Cross-System Pattern Mining & Organizational Intelligence
+## 17. Cross-System Pattern Mining & Organizational Intelligence
 
 This section describes how multiple enterprise applications can derive shared intelligence, detect organizational patterns, and drive governance decisions from UDLS-compliant logs.
 
-## 17.1 Overview
+### 17.1 Overview
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
 UDLS provides a unified schema for decision events across IoT nodes, enterprise services, LLM-assisted workflows, and multi-agent systems. By aggregating these logs, organizations can construct cross-application intelligence structures that reveal patterns in behavior, drift, policy adherence, and systemic risk.
 
-## 17.2 Multi-Application Behavioral Pattern Mining
+### 17.2 Multi-Application Behavioral Pattern Mining
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1392,7 +1426,7 @@ Cross-application queries identify:
 - Systematic misalignment between LLM suggestions and policy
 - Coordinated failure signatures across independent systems
 
-## 17.3 Enterprise Drift Detection
+### 17.3 Enterprise Drift Detection
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1404,7 +1438,7 @@ Drift signals emerging across multiple systems reveal:
 
 By comparing UDLS `eval`, `model.version`, and `result` fields across applications, organizations can detect and respond to fleet-wide misbehavior.
 
-## 17.4 Organizational Intent Heatmapping
+### 17.4 Organizational Intent Heatmapping
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1416,7 +1450,7 @@ UDLS `intent_id` enables semantic grouping of decisions across departments. Heat
 
 This guides optimization, training, and resource allocation.
 
-## 17.5 Causal Chain Reconstruction
+### 17.5 Causal Chain Reconstruction
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1433,7 +1467,7 @@ These graphs uncover:
 - Cascading failures
 - Policy conflicts
 
-## 17.6 Knowledge Graph Construction
+### 17.6 Knowledge Graph Construction
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1459,7 +1493,7 @@ Graph queries reveal:
 - Areas for policy rewrite or retraining
 - Opportunities for decision automation
 
-## 17.7 Multi-Agent Governance
+### 17.7 Multi-Agent Governance
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1470,7 +1504,7 @@ Aggregated UDLS logs allow agents to:
 - Enforce enterprise-wide governance constraints
 - Trigger mitigations or rollbacks
 
-## 17.8 Enterprise Evaluation Pipelines
+### 17.8 Enterprise Evaluation Pipelines
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1481,7 +1515,7 @@ Organizations SHOULD implement evaluation pipelines that:
 4. Trigger rollbacks or model routing changes.
 5. Provide human-readable dashboards for oversight.
 
-## 17.9 Recommended Storage & Query Models
+### 17.9 Recommended Storage & Query Models
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
@@ -1492,7 +1526,7 @@ Ideal backends for UDLS aggregation include:
 - Vector DBs (Milvus, Qdrant) for rationale embeddings
 - Lakehouse architectures (Iceberg, Delta)
 
-## 17.10 Organizational Intelligence Outcomes
+### 17.10 Organizational Intelligence Outcomes
 
 [⬆ Back to Table of Contents](#table-of-contents)
 
