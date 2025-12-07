@@ -1,4 +1,4 @@
-# Unified Decision Log Specification (v4)
+# Unified Decision Log Specification
 
 [Jump to Table of Contents](#table-of-contents)
 
